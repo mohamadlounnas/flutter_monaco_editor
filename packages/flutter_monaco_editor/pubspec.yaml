@@ -1,0 +1,36 @@
+name: flutter_monaco_editor
+description: A complete Flutter wrapper for Monaco Editor (VS Code's editor) with full API parity across Web, Android, iOS, macOS, Windows, and Linux.
+version: 0.1.0-dev
+repository: https://github.com/outr/flutter_monaco_editor
+issue_tracker: https://github.com/outr/flutter_monaco_editor/issues
+topics:
+  - editor
+  - monaco
+  - code-editor
+  - ide
+
+environment:
+  sdk: ^3.6.0
+  flutter: ">=3.24.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  web: ^1.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  assets:
+    - assets/monaco-min/vs/
+    - assets/monaco-min/vs/assets/
+    - assets/monaco-min/vs/basic-languages/
+    - assets/monaco-min/vs/editor/
+    - assets/monaco-min/vs/language/
+    - assets/monaco-min/vs/language/css/
+    - assets/monaco-min/vs/language/html/
+    - assets/monaco-min/vs/language/json/
+    - assets/monaco-min/vs/language/typescript/
