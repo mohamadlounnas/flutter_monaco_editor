@@ -18,6 +18,18 @@ class ExampleApp extends StatelessWidget {
   }
 }
 
+const String _initialCode = '''
+// flutter_monaco_editor — Phase 1.3 preview
+// Bundled Monaco: $monacoVersion
+
+void main() {
+  final greetings = ['Hello', 'Bonjour', 'Hallo', 'Hola'];
+  for (final greeting in greetings) {
+    print('\$greeting, Monaco!');
+  }
+}
+''';
+
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -26,22 +38,68 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  static const String _initialCode = '''
-// flutter_monaco_editor — Phase 1.2 preview
-// Bundled Monaco: $monacoVersion
-void main() {
-  final editor = 'Monaco';
-  print('Hello from \$editor!');
-}
-''';
-
+  late final MonacoController _controller;
+  MonacoPosition? _position;
   int _charCount = _initialCode.length;
+  bool _readOnly = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = MonacoController(
+      initialValue: _initialCode,
+      language: 'dart',
+    );
+    _controller.onDidChangeContent.listen((value) {
+      setState(() => _charCount = value.length);
+    });
+    _controller.onDidChangeCursorPosition.listen((pos) {
+      setState(() => _position = pos);
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _toggleReadOnly() async {
+    setState(() => _readOnly = !_readOnly);
+    await _controller.setReadOnly(_readOnly);
+  }
+
+  Future<void> _jumpToLine5() async {
+    await _controller.setPosition(const MonacoPosition(line: 5, column: 1));
+    await _controller.revealLineInCenter(5);
+    await _controller.focus();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final pos = _position;
+    final statusLine = [
+      'Monaco $monacoVersion',
+      '$_charCount chars',
+      if (pos != null) 'Ln ${pos.line}, Col ${pos.column}',
+      if (_readOnly) 'read-only',
+    ].join('  •  ');
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('flutter_monaco_editor'),
+        actions: [
+          IconButton(
+            tooltip: _readOnly ? 'Enable editing' : 'Set read-only',
+            icon: Icon(_readOnly ? Icons.lock : Icons.lock_open),
+            onPressed: _toggleReadOnly,
+          ),
+          IconButton(
+            tooltip: 'Jump to line 5',
+            icon: const Icon(Icons.south),
+            onPressed: _jumpToLine5,
+          ),
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(24),
           child: Padding(
@@ -49,18 +107,14 @@ void main() {
             child: Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                'Monaco $monacoVersion  •  $_charCount chars',
+                statusLine,
                 style: const TextStyle(fontSize: 12, color: Colors.white70),
               ),
             ),
           ),
         ),
       ),
-      body: MonacoEditor(
-        initialValue: _initialCode,
-        language: 'dart',
-        onChanged: (value) => setState(() => _charCount = value.length),
-      ),
+      body: MonacoEditor(controller: _controller),
     );
   }
 }

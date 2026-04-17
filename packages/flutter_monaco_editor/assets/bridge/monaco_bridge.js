@@ -69,8 +69,6 @@
   var handlers = Object.create(null);
 
   handlers['bridge.init'] = function (args) {
-    // Loads Monaco's AMD loader, configures paths, then requires editor.main.
-    // On success, signals ready.
     return new Promise(function (resolve, reject) {
       if (bridge._ready) { resolve(); return; }
       if (!args || !args.vsPath) { reject(new Error('bridge.init: vsPath required')); return; }
@@ -117,8 +115,29 @@
           column: e.position.column,
         });
       }),
+      editor.onDidChangeCursorSelection(function (e) {
+        bridge.emit('editor.selectionChange', Object.assign(
+          { editorId: editorId },
+          _serializeSelection(e.selection)
+        ));
+      }),
+      editor.onDidScrollChange(function (e) {
+        bridge.emit('editor.scrollChange', {
+          editorId: editorId,
+          scrollTop: e.scrollTop,
+          scrollLeft: e.scrollLeft,
+          scrollHeight: e.scrollHeight,
+          scrollWidth: e.scrollWidth,
+          scrollTopChanged: !!e.scrollTopChanged,
+          scrollLeftChanged: !!e.scrollLeftChanged,
+          scrollHeightChanged: !!e.scrollHeightChanged,
+          scrollWidthChanged: !!e.scrollWidthChanged,
+        });
+      }),
       editor.onDidFocusEditorText(function () { bridge.emit('editor.focus', { editorId: editorId }); }),
       editor.onDidBlurEditorText(function () { bridge.emit('editor.blur', { editorId: editorId }); }),
+      editor.onKeyDown(function (e) { bridge.emit('editor.keyDown', _serializeKey(editorId, e)); }),
+      editor.onKeyUp(function (e) { bridge.emit('editor.keyUp', _serializeKey(editorId, e)); }),
     ];
 
     bridge._editors[editorId] = { editor: editor, disposers: disposers };
@@ -155,6 +174,59 @@
     return null;
   };
 
+  handlers['editor.getPosition'] = function (args) {
+    var pos = _entry(args.editorId).editor.getPosition();
+    return pos ? { line: pos.lineNumber, column: pos.column } : null;
+  };
+
+  handlers['editor.setPosition'] = function (args) {
+    _entry(args.editorId).editor.setPosition({
+      lineNumber: args.line,
+      column: args.column,
+    });
+    return null;
+  };
+
+  handlers['editor.getSelection'] = function (args) {
+    var sel = _entry(args.editorId).editor.getSelection();
+    return sel ? _serializeSelection(sel) : null;
+  };
+
+  handlers['editor.setSelection'] = function (args) {
+    _entry(args.editorId).editor.setSelection({
+      selectionStartLineNumber: args.selectionStartLine,
+      selectionStartColumn: args.selectionStartColumn,
+      positionLineNumber: args.positionLine,
+      positionColumn: args.positionColumn,
+    });
+    return null;
+  };
+
+  handlers['editor.revealLine'] = function (args) {
+    _entry(args.editorId).editor.revealLine(args.line);
+    return null;
+  };
+
+  handlers['editor.revealLineInCenter'] = function (args) {
+    _entry(args.editorId).editor.revealLineInCenter(args.line);
+    return null;
+  };
+
+  handlers['editor.revealRange'] = function (args) {
+    _entry(args.editorId).editor.revealRange({
+      startLineNumber: args.startLine,
+      startColumn: args.startColumn,
+      endLineNumber: args.endLine,
+      endColumn: args.endColumn,
+    });
+    return null;
+  };
+
+  handlers['editor.updateOptions'] = function (args) {
+    _entry(args.editorId).editor.updateOptions(args.options || {});
+    return null;
+  };
+
   handlers['editor.dispose'] = function (args) {
     var entry = bridge._editors[args.editorId];
     if (!entry) return null;
@@ -170,6 +242,34 @@
     var entry = bridge._editors[editorId];
     if (!entry) throw new Error('unknown editorId: ' + editorId);
     return entry;
+  }
+
+  function _serializeSelection(sel) {
+    return {
+      startLine: sel.startLineNumber,
+      startColumn: sel.startColumn,
+      endLine: sel.endLineNumber,
+      endColumn: sel.endColumn,
+      selectionStartLine: sel.selectionStartLineNumber,
+      selectionStartColumn: sel.selectionStartColumn,
+      positionLine: sel.positionLineNumber,
+      positionColumn: sel.positionColumn,
+    };
+  }
+
+  function _serializeKey(editorId, e) {
+    // Monaco's IKeyboardEvent wraps the browser KeyboardEvent at `browserEvent`.
+    var be = e && e.browserEvent || {};
+    return {
+      editorId: editorId,
+      key: be.key || '',
+      code: be.code || '',
+      keyCode: typeof e.keyCode === 'number' ? e.keyCode : 0,
+      ctrl: !!e.ctrlKey,
+      shift: !!e.shiftKey,
+      alt: !!e.altKey,
+      meta: !!e.metaKey,
+    };
   }
 
   window.monacoBridge = bridge;

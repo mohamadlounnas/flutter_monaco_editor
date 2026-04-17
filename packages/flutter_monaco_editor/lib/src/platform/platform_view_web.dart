@@ -4,21 +4,17 @@ import 'dart:ui_web' as ui_web;
 import 'package:flutter/widgets.dart';
 import 'package:web/web.dart' as web;
 
-import '../bridge/bridge.dart';
+import '../monaco_controller.dart';
 import '../web/web_monaco_bridge.dart';
 
 class MonacoPlatformView extends StatefulWidget {
   const MonacoPlatformView({
     super.key,
-    required this.initialValue,
-    required this.language,
-    required this.theme,
+    required this.controller,
     required this.onChanged,
   });
 
-  final String initialValue;
-  final String language;
-  final String theme;
+  final MonacoController controller;
   final ValueChanged<String>? onChanged;
 
   @override
@@ -30,20 +26,35 @@ class _MonacoPlatformViewState extends State<MonacoPlatformView> {
 
   String? _viewType;
   String? _editorId;
-  MonacoBridge? _bridge;
-  StreamSubscription<BridgeEvent>? _eventsSub;
   Completer<web.HTMLDivElement>? _containerReady;
+  StreamSubscription<String>? _onChangedSub;
 
   @override
   void initState() {
     super.initState();
     unawaited(_initialize());
+    _wireOnChanged(widget.controller);
+  }
+
+  @override
+  void didUpdateWidget(MonacoPlatformView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller ||
+        oldWidget.onChanged != widget.onChanged) {
+      _onChangedSub?.cancel();
+      _wireOnChanged(widget.controller);
+    }
+  }
+
+  void _wireOnChanged(MonacoController controller) {
+    final cb = widget.onChanged;
+    if (cb == null) return;
+    _onChangedSub = controller.onDidChangeContent.listen(cb);
   }
 
   Future<void> _initialize() async {
     final bridge = await WebMonacoBridge.instance();
     if (!mounted) return;
-    _bridge = bridge;
 
     final seq = ++_factorySeq;
     final containerId = 'monaco-container-$seq';
@@ -67,31 +78,24 @@ class _MonacoPlatformViewState extends State<MonacoPlatformView> {
 
     final editorId = await bridge.invoke('editor.create', {
       'containerId': containerId,
-      'options': <String, Object?>{
-        'value': widget.initialValue,
-        'language': widget.language,
-        'theme': widget.theme,
-        'automaticLayout': true,
-      },
+      'options': widget.controller.buildCreateOptions(),
     }) as String;
     _editorId = editorId;
-
-    _eventsSub = bridge.events.listen((event) {
-      if (event.editorId != editorId) return;
-      if (event.type == 'editor.contentChange') {
-        final value = event.payload['value'];
-        if (value is String) widget.onChanged?.call(value);
-      }
-    });
+    widget.controller.attach(bridge, editorId);
   }
 
   @override
   void dispose() {
-    final bridge = _bridge;
+    _onChangedSub?.cancel();
     final editorId = _editorId;
-    _eventsSub?.cancel();
-    if (bridge != null && editorId != null) {
-      unawaited(bridge.invoke('editor.dispose', {'editorId': editorId}));
+    if (editorId != null) {
+      widget.controller.detach();
+      // Bridge call is fire-and-forget; the bridge survives beyond this widget.
+      unawaited(
+        WebMonacoBridge.instance().then(
+          (b) => b.invoke('editor.dispose', {'editorId': editorId}),
+        ),
+      );
     }
     super.dispose();
   }
