@@ -19,13 +19,19 @@ class ExampleApp extends StatelessWidget {
 }
 
 const String _initialCode = '''
-// flutter_monaco_editor — Phase 1.3 preview
+// flutter_monaco_editor — Phase 1.4 preview
 // Bundled Monaco: $monacoVersion
 
-void main() {
-  final greetings = ['Hello', 'Bonjour', 'Hallo', 'Hola'];
+import 'dart:async';
+import 'package:flutter/material.dart';
+
+/// Toggle options with the buttons in the app bar — read-only, word wrap,
+/// font size, minimap — to see MonacoEditorOptions in action.
+Future<void> main() async {
+  final greetings = ['Hello', 'Bonjour', 'Hallo', 'Hola', 'こんにちは'];
   for (final greeting in greetings) {
-    print('\$greeting, Monaco!');
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    print('\$greeting from Monaco!');
   }
 }
 ''';
@@ -39,9 +45,13 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   late final MonacoController _controller;
+
   MonacoPosition? _position;
   int _charCount = _initialCode.length;
   bool _readOnly = false;
+  bool _wordWrap = false;
+  bool _minimap = true;
+  double _fontSize = 14;
 
   @override
   void initState() {
@@ -49,6 +59,15 @@ class _HomePageState extends State<HomePage> {
     _controller = MonacoController(
       initialValue: _initialCode,
       language: 'dart',
+      options: MonacoEditorOptions(
+        fontSize: _fontSize,
+        wordWrap:
+            _wordWrap ? MonacoWordWrap.on : MonacoWordWrap.off,
+        minimap: MonacoMinimapOptions(enabled: _minimap),
+        bracketPairColorization: true,
+        smoothScrolling: true,
+        cursorSmoothCaretAnimation: true,
+      ),
     );
     _controller.onDidChangeContent.listen((value) {
       setState(() => _charCount = value.length);
@@ -69,9 +88,37 @@ class _HomePageState extends State<HomePage> {
     await _controller.setReadOnly(_readOnly);
   }
 
-  Future<void> _jumpToLine5() async {
-    await _controller.setPosition(const MonacoPosition(line: 5, column: 1));
-    await _controller.revealLineInCenter(5);
+  Future<void> _toggleWordWrap() async {
+    setState(() => _wordWrap = !_wordWrap);
+    await _controller.updateOptions(
+      MonacoEditorOptions(
+        wordWrap: _wordWrap ? MonacoWordWrap.on : MonacoWordWrap.off,
+      ),
+    );
+  }
+
+  Future<void> _toggleMinimap() async {
+    setState(() => _minimap = !_minimap);
+    await _controller.updateOptions(
+      MonacoEditorOptions(minimap: MonacoMinimapOptions(enabled: _minimap)),
+    );
+  }
+
+  Future<void> _cycleFontSize() async {
+    setState(() {
+      _fontSize = switch (_fontSize) {
+        == 14.0 => 16,
+        == 16.0 => 18,
+        == 18.0 => 12,
+        _ => 14,
+      };
+    });
+    await _controller.updateOptions(MonacoEditorOptions(fontSize: _fontSize));
+  }
+
+  Future<void> _jumpToLine10() async {
+    await _controller.setPosition(const MonacoPosition(line: 10, column: 1));
+    await _controller.revealLineInCenter(10);
     await _controller.focus();
   }
 
@@ -82,7 +129,10 @@ class _HomePageState extends State<HomePage> {
       'Monaco $monacoVersion',
       '$_charCount chars',
       if (pos != null) 'Ln ${pos.line}, Col ${pos.column}',
+      '${_fontSize.toInt()}px',
       if (_readOnly) 'read-only',
+      if (_wordWrap) 'wrap',
+      if (_minimap) 'minimap',
     ].join('  •  ');
 
     return Scaffold(
@@ -95,9 +145,24 @@ class _HomePageState extends State<HomePage> {
             onPressed: _toggleReadOnly,
           ),
           IconButton(
-            tooltip: 'Jump to line 5',
+            tooltip: 'Toggle word wrap',
+            icon: Icon(_wordWrap ? Icons.wrap_text : Icons.chevron_right),
+            onPressed: _toggleWordWrap,
+          ),
+          IconButton(
+            tooltip: 'Toggle minimap',
+            icon: Icon(_minimap ? Icons.map : Icons.map_outlined),
+            onPressed: _toggleMinimap,
+          ),
+          IconButton(
+            tooltip: 'Cycle font size',
+            icon: const Icon(Icons.format_size),
+            onPressed: _cycleFontSize,
+          ),
+          IconButton(
+            tooltip: 'Jump to line 10',
             icon: const Icon(Icons.south),
-            onPressed: _jumpToLine5,
+            onPressed: _jumpToLine10,
           ),
         ],
         bottom: PreferredSize(

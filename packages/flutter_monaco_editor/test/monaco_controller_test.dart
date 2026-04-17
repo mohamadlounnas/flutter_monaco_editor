@@ -5,11 +5,10 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('MonacoController pre-attach', () {
-    test('cached state reflects constructor values', () {
+    test('cached state reflects constructor values', () async {
       final c = MonacoController(
         initialValue: 'hello',
         language: 'dart',
-        theme: 'vs-dark',
         readOnly: true,
       );
       expect(c.value, 'hello');
@@ -20,7 +19,7 @@ void main() {
       expect(c.selection, isNull);
       expect(c.isAttached, isFalse);
       expect(c.isDisposed, isFalse);
-      c.dispose();
+      await c.dispose();
     });
 
     test('setValue/setLanguage/setReadOnly/setTheme update cache without attach',
@@ -35,10 +34,10 @@ void main() {
       expect(c.readOnly, isTrue);
       expect(c.theme, 'vs');
       expect(c.isAttached, isFalse);
-      c.dispose();
+      await c.dispose();
     });
 
-    test('buildCreateOptions reflects cached state', () {
+    test('buildCreateOptions reflects cached state', () async {
       final c = MonacoController(
         initialValue: 'x',
         language: 'yaml',
@@ -52,7 +51,7 @@ void main() {
         'readOnly': true,
         'automaticLayout': true,
       });
-      c.dispose();
+      await c.dispose();
     });
 
     test('operations on disposed controller throw StateError', () async {
@@ -68,10 +67,10 @@ void main() {
       unawaited(c.ready.then((_) => completed = true));
       await Future<void>.delayed(Duration.zero);
       expect(completed, isFalse);
-      c.dispose();
+      await c.dispose();
     });
 
-    test('event streams exist and are broadcast', () {
+    test('event streams exist and are broadcast', () async {
       final c = MonacoController();
       expect(c.onDidChangeContent.isBroadcast, isTrue);
       expect(c.onDidChangeCursorPosition.isBroadcast, isTrue);
@@ -81,7 +80,7 @@ void main() {
       expect(c.onDidBlur.isBroadcast, isTrue);
       expect(c.onKeyDown.isBroadcast, isTrue);
       expect(c.onKeyUp.isBroadcast, isTrue);
-      c.dispose();
+      await c.dispose();
     });
   });
 

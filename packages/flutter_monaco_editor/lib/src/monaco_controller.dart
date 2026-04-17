@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'bridge/bridge.dart';
 import 'models/models.dart';
+import 'options/options.dart';
 
 /// The programmatic interface to a single `MonacoEditor` instance.
 ///
@@ -26,10 +27,12 @@ class MonacoController {
     String language = 'plaintext',
     String theme = 'vs-dark',
     bool readOnly = false,
+    MonacoEditorOptions? options,
   })  : _cachedValue = initialValue,
         _cachedLanguage = language,
         _cachedTheme = theme,
-        _cachedReadOnly = readOnly;
+        _cachedReadOnly = readOnly,
+        _cachedOptions = options;
 
   // --- bridge state ---
   MonacoBridge? _bridge;
@@ -43,6 +46,7 @@ class MonacoController {
   String _cachedLanguage;
   String _cachedTheme;
   bool _cachedReadOnly;
+  MonacoEditorOptions? _cachedOptions;
   MonacoPosition? _cachedPosition;
   MonacoSelection? _cachedSelection;
 
@@ -119,6 +123,10 @@ class MonacoController {
 
   bool get readOnly => _cachedReadOnly;
 
+  /// Last-set structured options. `null` if no options have been set since
+  /// construction (the editor uses Monaco defaults).
+  MonacoEditorOptions? get options => _cachedOptions;
+
   /// Last-observed cursor position. `null` before the first cursor event
   /// (typically, before the editor is attached).
   MonacoPosition? get position => _cachedPosition;
@@ -177,6 +185,20 @@ class MonacoController {
     await _bridge!.invoke('editor.updateOptions', {
       'editorId': _editorId!,
       'options': {'readOnly': readOnly},
+    });
+  }
+
+  /// Apply a partial or full [MonacoEditorOptions] update. Non-null fields in
+  /// [partial] overwrite the cached options; null fields are preserved.
+  Future<void> updateOptions(MonacoEditorOptions partial) async {
+    _assertNotDisposed();
+    _cachedOptions = _cachedOptions == null
+        ? partial
+        : _cachedOptions!.mergedWith(partial);
+    if (!isAttached) return;
+    await _bridge!.invoke('editor.updateOptions', {
+      'editorId': _editorId!,
+      'options': partial.toJson(),
     });
   }
 
@@ -254,7 +276,13 @@ class MonacoController {
 
   /// Builds the option map used to create the Monaco editor. Called by the
   /// platform view at creation time.
+  ///
+  /// Merge order (later entries win):
+  ///   1. [options] (from the typed [MonacoEditorOptions])
+  ///   2. explicit controller state (value / language / theme / readOnly)
+  ///   3. `automaticLayout: true` (always)
   Map<String, Object?> buildCreateOptions() => {
+        ...?_cachedOptions?.toJson(),
         'value': _cachedValue,
         'language': _cachedLanguage,
         'theme': _cachedTheme,

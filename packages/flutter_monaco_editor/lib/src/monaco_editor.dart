@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import 'monaco_controller.dart';
+import 'options/options.dart';
 import 'platform/platform_view.dart';
 
 /// A Flutter widget that hosts a Monaco Editor instance.
@@ -20,21 +21,23 @@ class MonacoEditor extends StatefulWidget {
     this.language = 'plaintext',
     this.theme = 'vs-dark',
     this.readOnly = false,
+    this.options,
     this.onChanged,
   }) : assert(
           controller == null ||
               (initialValue == '' &&
                   language == 'plaintext' &&
                   theme == 'vs-dark' &&
-                  readOnly == false),
+                  readOnly == false &&
+                  options == null),
           'When a MonacoController is provided, configure initial state on '
-          'the controller instead of passing initialValue/language/theme/readOnly '
-          'to the widget.',
+          'the controller instead of passing initialValue/language/theme/'
+          'readOnly/options to the widget.',
         );
 
   /// Optional controller for programmatic access. If null, the widget owns
   /// an internal controller built from [initialValue], [language], [theme],
-  /// and [readOnly].
+  /// [readOnly], and [options].
   final MonacoController? controller;
 
   /// Initial content. Ignored if [controller] is provided.
@@ -49,9 +52,11 @@ class MonacoEditor extends StatefulWidget {
   /// Initial read-only mode. Ignored if [controller] is provided.
   final bool readOnly;
 
+  /// Typed editor options. Ignored if [controller] is provided.
+  final MonacoEditorOptions? options;
+
   /// Shortcut callback that fires on content changes. Equivalent to
-  /// `controller.onDidChangeContent.listen(...)`. Fires only on actual
-  /// content mutations, not on every character — Monaco batches changes.
+  /// `controller.onDidChangeContent.listen(...)`.
   final ValueChanged<String>? onChanged;
 
   @override
@@ -73,6 +78,7 @@ class _MonacoEditorState extends State<MonacoEditor> {
         language: widget.language,
         theme: widget.theme,
         readOnly: widget.readOnly,
+        options: widget.options,
       );
     }
   }
@@ -90,6 +96,7 @@ class _MonacoEditorState extends State<MonacoEditor> {
           language: widget.language,
           theme: widget.theme,
           readOnly: widget.readOnly,
+          options: widget.options,
         );
       }
     }
