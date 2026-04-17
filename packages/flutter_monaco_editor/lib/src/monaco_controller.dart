@@ -41,6 +41,11 @@ class MonacoController {
   final Completer<void> _readyCompleter = Completer<void>();
   bool _disposed = false;
 
+  // --- action / command callback maps ---
+  final Map<String, MonacoActionCallback> _actionHandlers = {};
+  final Map<String, void Function()> _commandHandlers = {};
+  int _nextCommandId = 1;
+
   // --- cached state ---
   String _cachedValue;
   String _cachedLanguage;
@@ -258,6 +263,130 @@ class MonacoController {
   }
 
   // ==========================================================================
+  // Decorations
+  // ==========================================================================
+
+  /// Replace the decorations identified by [oldIds] with [newDecorations],
+  /// returning the ids of the newly created decorations.
+  ///
+  /// Pass an empty list for [oldIds] to add decorations without removing
+  /// anything; pass an empty list for [newDecorations] to remove without
+  /// adding.
+  Future<List<String>> deltaDecorations(
+    List<String> oldIds,
+    List<MonacoDecoration> newDecorations,
+  ) async {
+    _assertNotDisposed();
+    await ready;
+    final result = await _bridge!.invoke('editor.deltaDecorations', {
+      'editorId': _editorId!,
+      'oldIds': oldIds,
+      'newDecorations': newDecorations.map((d) => d.toJson()).toList(),
+    });
+    final list = (result as List?) ?? const [];
+    return list.map((e) => e as String).toList(growable: false);
+  }
+
+  // ==========================================================================
+  // Markers (diagnostics)
+  // ==========================================================================
+
+  /// Publish diagnostics for the current model. Markers with the same
+  /// [owner] are replaced atomically. Use distinct owners for different
+  /// providers (e.g. `'dart-analyzer'`, `'linter'`).
+  Future<void> setModelMarkers(
+    List<MonacoMarker> markers, {
+    String owner = 'default',
+  }) async {
+    _assertNotDisposed();
+    await ready;
+    await _bridge!.invoke('markers.set', {
+      'editorId': _editorId!,
+      'owner': owner,
+      'markers': markers.map((m) => m.toJson()).toList(),
+    });
+  }
+
+  /// Remove all markers belonging to [owner] on the current model.
+  Future<void> clearModelMarkers({String owner = 'default'}) async {
+    _assertNotDisposed();
+    await ready;
+    await _bridge!.invoke('markers.clear', {
+      'editorId': _editorId!,
+      'owner': owner,
+    });
+  }
+
+  // ==========================================================================
+  // Actions & commands
+  // ==========================================================================
+
+  /// Register [action] with the editor. The action is listed in the command
+  /// palette and (if [MonacoAction.contextMenuGroupId] is set) the context
+  /// menu. [MonacoAction.run] fires when the action is invoked.
+  ///
+  /// Actions are cleaned up automatically when the controller is disposed.
+  Future<void> addAction(MonacoAction action) async {
+    _assertNotDisposed();
+    _actionHandlers[action.id] = action.run;
+    await ready;
+    await _bridge!.invoke('editor.addAction', {
+      'editorId': _editorId!,
+      ...action.toRegistrationJson(),
+    });
+  }
+
+  /// Bind a keybinding to a custom [handler] with no associated action.
+  /// Useful for one-off shortcuts that don't need a command-palette entry.
+  ///
+  /// Returns an id you can pass to [removeCommand] to unbind.
+  Future<String> addCommand(
+    int keybinding,
+    void Function() handler, {
+    String? context,
+  }) async {
+    _assertNotDisposed();
+    final commandId = 'cmd-${_nextCommandId++}';
+    _commandHandlers[commandId] = handler;
+    await ready;
+    await _bridge!.invoke('editor.addCommand', {
+      'editorId': _editorId!,
+      'commandId': commandId,
+      'keybinding': keybinding,
+      if (context != null) 'context': context,
+    });
+    return commandId;
+  }
+
+  /// Unbind a command previously registered with [addCommand].
+  Future<void> removeCommand(String commandId) async {
+    _assertNotDisposed();
+    _commandHandlers.remove(commandId);
+    await ready;
+    await _bridge!.invoke('editor.removeCommand', {
+      'editorId': _editorId!,
+      'commandId': commandId,
+    });
+  }
+
+  /// Trigger a built-in Monaco action (`'editor.action.formatDocument'`,
+  /// `'editor.action.commentLine'`, etc.) or a registered action by id.
+  Future<void> trigger(
+    String actionId, {
+    String source = 'flutter_monaco_editor',
+    Object? payload,
+  }) async {
+    _assertNotDisposed();
+    await ready;
+    await _bridge!.invoke('editor.trigger', {
+      'editorId': _editorId!,
+      'source': source,
+      'handlerId': actionId,
+      if (payload != null) 'payload': payload,
+    });
+  }
+
+  // ==========================================================================
   // Event streams (broadcast)
   // ==========================================================================
 
@@ -355,6 +484,12 @@ class MonacoController {
         _keyUpCtrl.add(MonacoKeyEvent.fromJson(
           event.payload.map((k, v) => MapEntry(k.toString(), v)),
         ));
+      case 'editor.actionInvoked':
+        final actionId = event.payload['actionId'] as String?;
+        if (actionId != null) _actionHandlers[actionId]?.call(actionId);
+      case 'editor.commandInvoked':
+        final commandId = event.payload['commandId'] as String?;
+        if (commandId != null) _commandHandlers[commandId]?.call();
     }
   }
 

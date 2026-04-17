@@ -238,6 +238,106 @@
     return null;
   };
 
+  handlers['editor.deltaDecorations'] = function (args) {
+    var entry = _entry(args.editorId);
+    var newDecos = (args.newDecorations || []).map(function (d) {
+      return {
+        range: _toMonacoRange(d.range),
+        options: d.options || {},
+      };
+    });
+    return entry.editor.deltaDecorations(args.oldIds || [], newDecos);
+  };
+
+  handlers['markers.set'] = function (args) {
+    var entry = _entry(args.editorId);
+    var model = entry.editor.getModel();
+    if (!model) return null;
+    var markers = (args.markers || []).map(_toMonacoMarker);
+    // eslint-disable-next-line no-undef
+    monaco.editor.setModelMarkers(model, args.owner || 'default', markers);
+    return null;
+  };
+
+  handlers['markers.clear'] = function (args) {
+    var entry = _entry(args.editorId);
+    var model = entry.editor.getModel();
+    if (!model) return null;
+    // eslint-disable-next-line no-undef
+    monaco.editor.setModelMarkers(model, args.owner || 'default', []);
+    return null;
+  };
+
+  handlers['editor.addAction'] = function (args) {
+    var entry = _entry(args.editorId);
+    var editorId = args.editorId;
+    var actionId = args.id;
+    var descriptor = {
+      id: actionId,
+      label: args.label,
+      keybindings: args.keybindings || [],
+      run: function () {
+        bridge.emit('editor.actionInvoked', {
+          editorId: editorId,
+          actionId: actionId,
+        });
+      },
+    };
+    if (args.contextMenuGroupId) descriptor.contextMenuGroupId = args.contextMenuGroupId;
+    if (typeof args.contextMenuOrder === 'number') descriptor.contextMenuOrder = args.contextMenuOrder;
+    if (args.precondition) descriptor.precondition = args.precondition;
+    if (args.keybindingContext) descriptor.keybindingContext = args.keybindingContext;
+
+    var disposable = entry.editor.addAction(descriptor);
+    entry.actions = entry.actions || Object.create(null);
+    entry.actions[actionId] = disposable;
+    entry.disposers.push(disposable);
+    return null;
+  };
+
+  handlers['editor.addCommand'] = function (args) {
+    var entry = _entry(args.editorId);
+    var editorId = args.editorId;
+    var commandId = args.commandId;
+    // Monaco's editor.addCommand returns a raw command id string; we discard
+    // it and key on our own commandId for cross-platform consistency.
+    var disposable = entry.editor.addCommand(
+      args.keybinding,
+      function () {
+        bridge.emit('editor.commandInvoked', {
+          editorId: editorId,
+          commandId: commandId,
+        });
+      },
+      args.context
+    );
+    entry.commands = entry.commands || Object.create(null);
+    // addCommand in some Monaco versions returns a string id (not disposable).
+    // Normalize: store either for later removal.
+    entry.commands[commandId] = disposable;
+    return null;
+  };
+
+  handlers['editor.removeCommand'] = function (args) {
+    var entry = _entry(args.editorId);
+    if (!entry.commands) return null;
+    var token = entry.commands[args.commandId];
+    if (token && typeof token.dispose === 'function') {
+      try { token.dispose(); } catch (e) { console.error(e); }
+    }
+    delete entry.commands[args.commandId];
+    return null;
+  };
+
+  handlers['editor.trigger'] = function (args) {
+    _entry(args.editorId).editor.trigger(
+      args.source || 'flutter_monaco_editor',
+      args.handlerId,
+      args.payload
+    );
+    return null;
+  };
+
   function _entry(editorId) {
     var entry = bridge._editors[editorId];
     if (!entry) throw new Error('unknown editorId: ' + editorId);
@@ -255,6 +355,43 @@
       positionLine: sel.positionLineNumber,
       positionColumn: sel.positionColumn,
     };
+  }
+
+  function _toMonacoRange(r) {
+    if (!r) return r;
+    return {
+      startLineNumber: r.startLine,
+      startColumn: r.startColumn,
+      endLineNumber: r.endLine,
+      endColumn: r.endColumn,
+    };
+  }
+
+  function _toMonacoMarker(m) {
+    var out = {
+      startLineNumber: m.startLine,
+      startColumn: m.startColumn,
+      endLineNumber: m.endLine,
+      endColumn: m.endColumn,
+      severity: m.severity,
+      message: m.message,
+    };
+    if (m.source) out.source = m.source;
+    if (m.code !== undefined) out.code = m.code;
+    if (m.tags) out.tags = m.tags;
+    if (m.relatedInformation) {
+      out.relatedInformation = m.relatedInformation.map(function (r) {
+        return {
+          resource: r.resource,
+          message: r.message,
+          startLineNumber: r.startLine,
+          startColumn: r.startColumn,
+          endLineNumber: r.endLine,
+          endColumn: r.endColumn,
+        };
+      });
+    }
+    return out;
   }
 
   function _serializeKey(editorId, e) {

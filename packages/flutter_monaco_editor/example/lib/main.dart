@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_monaco_editor/flutter_monaco_editor.dart';
 
@@ -19,20 +21,25 @@ class ExampleApp extends StatelessWidget {
 }
 
 const String _initialCode = '''
-// flutter_monaco_editor — Phase 1.4 preview
+// flutter_monaco_editor — Phase 2 preview
 // Bundled Monaco: $monacoVersion
+//
+// Try:
+//   * Ctrl/Cmd+Shift+L  — excited-greeting action (replaces "Hello" → "Hello!")
+//   * Ctrl/Cmd+K        — shows a demo snackbar (via addCommand)
+//   * Right-click       — see the registered action in the context menu
+//   * Hover line 10     — custom decoration with tooltip
 
 import 'dart:async';
 import 'package:flutter/material.dart';
 
-/// Toggle options with the buttons in the app bar — read-only, word wrap,
-/// font size, minimap — to see MonacoEditorOptions in action.
 Future<void> main() async {
   final greetings = ['Hello', 'Bonjour', 'Hallo', 'Hola', 'こんにちは'];
   for (final greeting in greetings) {
     await Future<void>.delayed(const Duration(milliseconds: 100));
     print('\$greeting from Monaco!');
   }
+  print('All done.');
 }
 ''';
 
@@ -49,9 +56,7 @@ class _HomePageState extends State<HomePage> {
   MonacoPosition? _position;
   int _charCount = _initialCode.length;
   bool _readOnly = false;
-  bool _wordWrap = false;
-  bool _minimap = true;
-  double _fontSize = 14;
+  List<String> _decorationIds = const [];
 
   @override
   void initState() {
@@ -59,22 +64,90 @@ class _HomePageState extends State<HomePage> {
     _controller = MonacoController(
       initialValue: _initialCode,
       language: 'dart',
-      options: MonacoEditorOptions(
-        fontSize: _fontSize,
-        wordWrap:
-            _wordWrap ? MonacoWordWrap.on : MonacoWordWrap.off,
-        minimap: MonacoMinimapOptions(enabled: _minimap),
+      options: const MonacoEditorOptions(
+        fontSize: 14,
         bracketPairColorization: true,
         smoothScrolling: true,
         cursorSmoothCaretAnimation: true,
+        glyphMargin: true,
       ),
     );
+
     _controller.onDidChangeContent.listen((value) {
       setState(() => _charCount = value.length);
     });
     _controller.onDidChangeCursorPosition.listen((pos) {
       setState(() => _position = pos);
     });
+
+    // Phase 2 demos run once the controller is attached.
+    unawaited(_afterReady());
+  }
+
+  Future<void> _afterReady() async {
+    await _controller.ready;
+
+    // Action with keybinding + context menu entry.
+    await _controller.addAction(MonacoAction(
+      id: 'example.exciteGreeting',
+      label: 'Excite the first "Hello"',
+      keybindings: const [
+        MonacoKeyMod.ctrlCmd | MonacoKeyMod.shift | MonacoKeyCode.keyL,
+      ],
+      contextMenuGroupId: '1_modification',
+      contextMenuOrder: 1.5,
+      run: (_) async {
+        final value = _controller.value;
+        if (!value.contains('Hello')) return;
+        final updated = value.replaceFirst('Hello', 'Hello!');
+        await _controller.setValue(updated);
+        if (mounted) _snack('Added enthusiasm to "Hello"');
+      },
+    ));
+
+    // Bare keybinding, no command palette / context menu entry.
+    await _controller.addCommand(
+      MonacoKeyMod.ctrlCmd | MonacoKeyCode.keyK,
+      () => _snack('Ctrl/Cmd+K fired from Monaco'),
+    );
+
+    // Warning marker + decoration on line 10.
+    await _controller.setModelMarkers(
+      const [
+        MonacoMarker(
+          range: MonacoRange(
+            startLine: 10, startColumn: 1, endLine: 10, endColumn: 80,
+          ),
+          severity: MonacoMarkerSeverity.warning,
+          message: 'Example warning — this line is decorated for demo purposes.',
+          source: 'flutter_monaco_editor example',
+        ),
+      ],
+      owner: 'example',
+    );
+
+    _decorationIds = await _controller.deltaDecorations(const [], const [
+      MonacoDecoration(
+        range: MonacoRange(
+          startLine: 10, startColumn: 1, endLine: 10, endColumn: 1,
+        ),
+        options: MonacoDecorationOptions(
+          isWholeLine: true,
+          className: 'fme-highlight-line',
+          glyphMarginClassName: 'fme-glyph-info',
+          hoverMessage: 'This line has a whole-line decoration.',
+          overviewRuler: MonacoOverviewRuler(color: '#58a6ff'),
+        ),
+      ),
+      MonacoDecoration(
+        range: MonacoRange(
+          startLine: 1, startColumn: 4, endLine: 1, endColumn: 30,
+        ),
+        options: MonacoDecorationOptions(
+          inlineClassName: 'fme-highlight-inline',
+        ),
+      ),
+    ]);
   }
 
   @override
@@ -83,43 +156,29 @@ class _HomePageState extends State<HomePage> {
     super.dispose();
   }
 
+  void _snack(String msg) {
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(SnackBar(
+        content: Text(msg),
+        duration: const Duration(seconds: 2),
+      ));
+  }
+
   Future<void> _toggleReadOnly() async {
     setState(() => _readOnly = !_readOnly);
     await _controller.setReadOnly(_readOnly);
   }
 
-  Future<void> _toggleWordWrap() async {
-    setState(() => _wordWrap = !_wordWrap);
-    await _controller.updateOptions(
-      MonacoEditorOptions(
-        wordWrap: _wordWrap ? MonacoWordWrap.on : MonacoWordWrap.off,
-      ),
-    );
+  Future<void> _formatDocument() async {
+    await _controller.trigger('editor.action.formatDocument');
   }
 
-  Future<void> _toggleMinimap() async {
-    setState(() => _minimap = !_minimap);
-    await _controller.updateOptions(
-      MonacoEditorOptions(minimap: MonacoMinimapOptions(enabled: _minimap)),
-    );
-  }
-
-  Future<void> _cycleFontSize() async {
-    setState(() {
-      _fontSize = switch (_fontSize) {
-        == 14.0 => 16,
-        == 16.0 => 18,
-        == 18.0 => 12,
-        _ => 14,
-      };
-    });
-    await _controller.updateOptions(MonacoEditorOptions(fontSize: _fontSize));
-  }
-
-  Future<void> _jumpToLine10() async {
-    await _controller.setPosition(const MonacoPosition(line: 10, column: 1));
-    await _controller.revealLineInCenter(10);
-    await _controller.focus();
+  Future<void> _clearDecorations() async {
+    if (_decorationIds.isEmpty) return;
+    await _controller.deltaDecorations(_decorationIds, const []);
+    await _controller.clearModelMarkers(owner: 'example');
+    setState(() => _decorationIds = const []);
   }
 
   @override
@@ -129,10 +188,8 @@ class _HomePageState extends State<HomePage> {
       'Monaco $monacoVersion',
       '$_charCount chars',
       if (pos != null) 'Ln ${pos.line}, Col ${pos.column}',
-      '${_fontSize.toInt()}px',
       if (_readOnly) 'read-only',
-      if (_wordWrap) 'wrap',
-      if (_minimap) 'minimap',
+      if (_decorationIds.isNotEmpty) '${_decorationIds.length} decorations',
     ].join('  •  ');
 
     return Scaffold(
@@ -145,24 +202,14 @@ class _HomePageState extends State<HomePage> {
             onPressed: _toggleReadOnly,
           ),
           IconButton(
-            tooltip: 'Toggle word wrap',
-            icon: Icon(_wordWrap ? Icons.wrap_text : Icons.chevron_right),
-            onPressed: _toggleWordWrap,
+            tooltip: 'Format document (built-in action)',
+            icon: const Icon(Icons.auto_fix_high),
+            onPressed: _formatDocument,
           ),
           IconButton(
-            tooltip: 'Toggle minimap',
-            icon: Icon(_minimap ? Icons.map : Icons.map_outlined),
-            onPressed: _toggleMinimap,
-          ),
-          IconButton(
-            tooltip: 'Cycle font size',
-            icon: const Icon(Icons.format_size),
-            onPressed: _cycleFontSize,
-          ),
-          IconButton(
-            tooltip: 'Jump to line 10',
-            icon: const Icon(Icons.south),
-            onPressed: _jumpToLine10,
+            tooltip: 'Clear demo decorations / markers',
+            icon: const Icon(Icons.cleaning_services),
+            onPressed: _clearDecorations,
           ),
         ],
         bottom: PreferredSize(

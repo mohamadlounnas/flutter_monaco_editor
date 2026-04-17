@@ -7,6 +7,33 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="flutter_monaco_editor example">
   <title>flutter_monaco_editor example</title>
+  <style>
+    /* Custom Monaco decoration classes used by the Phase 2 example.
+       Class names match the `MonacoDecorationOptions.className` /
+       `inlineClassName` / `glyphMarginClassName` fields in main.dart. */
+    .fme-highlight-line {
+      background: rgba(88, 166, 255, 0.08);
+      border-left: 2px solid #58a6ff;
+    }
+    .fme-highlight-inline {
+      background: rgba(255, 202, 88, 0.25);
+      border-radius: 2px;
+    }
+    .fme-glyph-info::before {
+      content: 'i';
+      display: block;
+      width: 16px;
+      height: 16px;
+      margin-left: 2px;
+      color: white;
+      background: #58a6ff;
+      border-radius: 50%;
+      text-align: center;
+      font-weight: bold;
+      font-size: 11px;
+      line-height: 16px;
+    }
+  </style>
 </head>
 <body>
   <script src="flutter_bootstrap.js" async></script>
