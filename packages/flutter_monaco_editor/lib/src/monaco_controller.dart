@@ -387,6 +387,51 @@ class MonacoController {
   }
 
   // ==========================================================================
+  // Multi-model
+  // ==========================================================================
+
+  /// Create a new Monaco text model. If [uri] is omitted, Monaco assigns a
+  /// fresh `inmemory://model/N` URI. Returns the URI so callers can
+  /// reference the model later.
+  ///
+  /// Models are independent of editors — multiple editors can share one
+  /// model (collaborative-style linked views) and one editor can switch
+  /// between models (IDE tab-switching).
+  Future<String> createModel({
+    required String value,
+    String language = 'plaintext',
+    String? uri,
+  }) async {
+    _assertNotDisposed();
+    await ready;
+    final result = await _bridge!.invoke('models.create', {
+      'value': value,
+      'language': language,
+      if (uri != null) 'uri': uri,
+    });
+    return (result as Map?)?['uri'] as String? ?? (result as String);
+  }
+
+  /// Switch the current editor to display the model identified by [uri].
+  /// The model must have been created previously via [createModel].
+  Future<void> switchToModel(String uri) async {
+    _assertNotDisposed();
+    await ready;
+    await _bridge!.invoke('editor.setModel', {
+      'editorId': _editorId!,
+      'uri': uri,
+    });
+  }
+
+  /// Destroy a model previously created via [createModel]. If the model is
+  /// currently displayed by this editor, call [switchToModel] first.
+  Future<void> disposeMonacoModel(String uri) async {
+    _assertNotDisposed();
+    await ready;
+    await _bridge!.invoke('models.dispose', {'uri': uri});
+  }
+
+  // ==========================================================================
   // Event streams (broadcast)
   // ==========================================================================
 

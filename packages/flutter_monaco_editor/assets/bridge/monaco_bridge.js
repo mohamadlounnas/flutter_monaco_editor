@@ -21,6 +21,9 @@
     _emit: null,
     _editors: Object.create(null),
     _nextEditorId: 1,
+    _diffs: Object.create(null),             // diffId → {editor, disposers}
+    _nextDiffId: 1,
+    _models: Object.create(null),            // uri → Monaco ITextModel
     _providers: Object.create(null),         // providerId → Monaco IDisposable
     _pendingRequests: Object.create(null),   // requestId → {resolve, reject}
     _nextRequestId: 1,
@@ -483,6 +486,110 @@
     return null;
   };
 
+  // ---------------------------------------------------------------------
+  // Themes
+  // ---------------------------------------------------------------------
+
+  handlers['editor.defineTheme'] = function (args) {
+    // eslint-disable-next-line no-undef
+    monaco.editor.defineTheme(args.name, args.theme || {});
+    return null;
+  };
+
+  // ---------------------------------------------------------------------
+  // Multi-model
+  // ---------------------------------------------------------------------
+
+  handlers['models.create'] = function (args) {
+    // eslint-disable-next-line no-undef
+    var uri = args.uri ? monaco.Uri.parse(args.uri) : undefined;
+    // eslint-disable-next-line no-undef
+    var model = monaco.editor.createModel(args.value || '', args.language || 'plaintext', uri);
+    var uriStr = model.uri.toString();
+    bridge._models[uriStr] = model;
+    return { uri: uriStr };
+  };
+
+  handlers['models.dispose'] = function (args) {
+    var model = bridge._models[args.uri];
+    if (model) {
+      try { model.dispose(); } catch (e) { console.error(e); }
+      delete bridge._models[args.uri];
+    }
+    return null;
+  };
+
+  handlers['editor.setModel'] = function (args) {
+    var entry = _entry(args.editorId);
+    var model = bridge._models[args.uri];
+    if (!model) throw new Error('editor.setModel: unknown uri ' + args.uri);
+    entry.editor.setModel(model);
+    return null;
+  };
+
+  // ---------------------------------------------------------------------
+  // Diff editor
+  // ---------------------------------------------------------------------
+
+  handlers['diff.create'] = function (args) {
+    var container = document.getElementById(args.containerId);
+    if (!container) throw new Error('diff.create: container "' + args.containerId + '" not in DOM');
+    var diffId = 'diff-' + (bridge._nextDiffId++);
+    var opts = args.options || {};
+    // eslint-disable-next-line no-undef
+    var diff = monaco.editor.createDiffEditor(container, opts);
+
+    // eslint-disable-next-line no-undef
+    var originalModel = monaco.editor.createModel(opts.original || '', opts.language || 'plaintext');
+    // eslint-disable-next-line no-undef
+    var modifiedModel = monaco.editor.createModel(opts.modified || '', opts.language || 'plaintext');
+    diff.setModel({ original: originalModel, modified: modifiedModel });
+
+    var disposers = [
+      originalModel.onDidChangeContent(function () {
+        bridge.emit('diff.originalChange', { diffId: diffId, value: originalModel.getValue() });
+      }),
+      modifiedModel.onDidChangeContent(function () {
+        bridge.emit('diff.modifiedChange', { diffId: diffId, value: modifiedModel.getValue() });
+      }),
+    ];
+
+    bridge._diffs[diffId] = { diff: diff, originalModel: originalModel, modifiedModel: modifiedModel, disposers: disposers };
+    return diffId;
+  };
+
+  handlers['diff.setOriginal'] = function (args) {
+    _diffEntry(args.diffId).originalModel.setValue(args.value == null ? '' : String(args.value));
+    return null;
+  };
+
+  handlers['diff.setModified'] = function (args) {
+    _diffEntry(args.diffId).modifiedModel.setValue(args.value == null ? '' : String(args.value));
+    return null;
+  };
+
+  handlers['diff.setLanguage'] = function (args) {
+    var entry = _diffEntry(args.diffId);
+    // eslint-disable-next-line no-undef
+    monaco.editor.setModelLanguage(entry.originalModel, args.language);
+    // eslint-disable-next-line no-undef
+    monaco.editor.setModelLanguage(entry.modifiedModel, args.language);
+    return null;
+  };
+
+  handlers['diff.dispose'] = function (args) {
+    var entry = bridge._diffs[args.diffId];
+    if (!entry) return null;
+    for (var i = 0; i < entry.disposers.length; i++) {
+      try { entry.disposers[i].dispose(); } catch (e) { console.error(e); }
+    }
+    try { entry.diff.dispose(); } catch (e) { console.error(e); }
+    try { entry.originalModel.dispose(); } catch (e) { console.error(e); }
+    try { entry.modifiedModel.dispose(); } catch (e) { console.error(e); }
+    delete bridge._diffs[args.diffId];
+    return null;
+  };
+
   handlers['editor.trigger'] = function (args) {
     _entry(args.editorId).editor.trigger(
       args.source || 'flutter_monaco_editor',
@@ -495,6 +602,12 @@
   function _entry(editorId) {
     var entry = bridge._editors[editorId];
     if (!entry) throw new Error('unknown editorId: ' + editorId);
+    return entry;
+  }
+
+  function _diffEntry(diffId) {
+    var entry = bridge._diffs[diffId];
+    if (!entry) throw new Error('unknown diffId: ' + diffId);
     return entry;
   }
 
