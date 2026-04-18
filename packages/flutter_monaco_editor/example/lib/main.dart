@@ -1,9 +1,17 @@
+import 'dart:io' show Platform;
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_monaco_editor/flutter_monaco_editor.dart';
+import 'package:flutter_monaco_editor_desktop/flutter_monaco_editor_desktop.dart';
 
 import 'demos/demo.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  if (!kIsWeb && (Platform.isLinux || Platform.isWindows || Platform.isMacOS)) {
+    MonacoDesktop.register();
+  }
   runApp(const GalleryApp());
 }
 
