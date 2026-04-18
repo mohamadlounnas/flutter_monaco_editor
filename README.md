@@ -113,7 +113,11 @@ Also wrap `FlView` in a `GtkOverlay` in `linux/runner/my_application.cc` (requir
 
 Windows 10/11 ship `WebView2` automatically. No additional setup needed.
 
-## Running the example
+## Try the demo
+
+**Live:** [**outr.github.io/flutter_monaco_editor**](https://outr.github.io/flutter_monaco_editor/) — the web build of the example gallery, deployed on every push to `main`.
+
+## Running the example locally
 
 ```sh
 cd example
