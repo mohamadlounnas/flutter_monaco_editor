@@ -2,6 +2,10 @@
 
 A complete Flutter wrapper for [Monaco Editor](https://github.com/microsoft/monaco-editor) (the editor that powers VS Code) with **full API parity** across Web, Android, iOS, macOS, Windows, and Linux.
 
+## ▶ [Try the live demo →](https://outr.github.io/flutter_monaco_editor/)
+
+No install required — the example gallery (9 demos covering every API surface) is deployed to GitHub Pages straight from this repo. Check out the editor, diff view, IntelliSense, custom themes, and the transparent-background showcase right in your browser.
+
 ## Status
 
 **Early development.** Core API + most language features are in place. See [PLAN.md](PLAN.md) and [CHANGELOG.md](CHANGELOG.md).
@@ -112,10 +116,6 @@ Also wrap `FlView` in a `GtkOverlay` in `linux/runner/my_application.cc` (requir
 ### Windows setup
 
 Windows 10/11 ship `WebView2` automatically. No additional setup needed.
-
-## Try the demo
-
-**Live:** [**outr.github.io/flutter_monaco_editor**](https://outr.github.io/flutter_monaco_editor/) — the web build of the example gallery, deployed on every push to `main`.
 
 ## Running the example locally
 
