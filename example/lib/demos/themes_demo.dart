@@ -150,20 +150,47 @@ void main() {
           const SizedBox(
             width: 16, height: 16,
             child: CircularProgressIndicator(strokeWidth: 2),
-          )
-        else
-          DropdownButton<String>(
-            value: _activeTheme,
-            items: names
-                .map((n) => DropdownMenuItem(value: n, child: Text(n)))
-                .toList(),
-            onChanged: (v) {
-              if (v != null) _set(v);
-            },
           ),
-        const SizedBox(width: 8),
       ],
-      child: MonacoEditor(controller: _controller),
+      // Put the theme picker in a sidebar (not a popup) — Flutter overlays
+      // render beneath the webview's GtkOverlay on Linux, so a DropdownButton
+      // popup would be hidden under the editor. Inline chips avoid that.
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            width: 220,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Theme',
+                    style: Theme.of(context).textTheme.labelLarge,
+                  ),
+                  const SizedBox(height: 8),
+                  for (final name in names)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: ChoiceChip(
+                        label: Text(name),
+                        selected: _activeTheme == name,
+                        onSelected: _themesRegistered
+                            ? (sel) {
+                                if (sel) _set(name);
+                              }
+                            : null,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          const VerticalDivider(width: 1),
+          Expanded(child: MonacoEditor(controller: _controller)),
+        ],
+      ),
     );
   }
 }

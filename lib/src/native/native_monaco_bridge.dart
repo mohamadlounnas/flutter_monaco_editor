@@ -119,9 +119,13 @@ class NativeMonacoBridge implements MonacoBridge {
     final url = '${server.baseUrl}/$_hostPath';
     _webController = WebViewController();
     await _webController.setJavaScriptMode(JavaScriptMode.unrestricted);
-    if (_transparent) {
-      await _webController.setBackgroundColor(const Color(0x00000000));
-    }
+    // Set a sensible default WebView background so the pre-Monaco
+    // loading state doesn't flash the webview's default (usually white).
+    // Transparent mode skips this — callers want their Flutter background
+    // visible behind the editor.
+    await _webController.setBackgroundColor(
+      _transparent ? const Color(0x00000000) : const Color(0xFF1E1E1E),
+    );
     await _webController.addJavaScriptChannel(
       _channelName,
       onMessageReceived: _onChannelMessage,
@@ -129,13 +133,13 @@ class NativeMonacoBridge implements MonacoBridge {
     await _webController.loadRequest(Uri.parse(url));
   }
 
-  /// Toggle the WebView's background at runtime. Useful for apps that
-  /// want to start opaque and switch to transparent without recreating
-  /// the editor.
+  /// Toggle the WebView's background at runtime. Pair with a matching
+  /// `MonacoTheme.transparent()` / opaque theme for the visual effect to
+  /// be visible.
   Future<void> setTransparent(bool transparent) async {
     _transparent = transparent;
     await _webController.setBackgroundColor(
-      transparent ? const Color(0x00000000) : const Color(0xFF000000),
+      transparent ? const Color(0x00000000) : const Color(0xFF1E1E1E),
     );
   }
 

@@ -47,6 +47,15 @@ class _NativeMonacoPlatformViewState extends State<NativeMonacoPlatformView> {
       _onChangedSub?.cancel();
       _wireOnChanged(widget.controller);
     }
+    if (oldWidget.transparent != widget.transparent) {
+      // Push the new value through to the live bridge so toggling
+      // `transparent` at runtime updates the WebView background without
+      // recreating the editor.
+      final bridge = _bridge;
+      if (bridge != null) {
+        unawaited(bridge.setTransparent(widget.transparent));
+      }
+    }
   }
 
   void _wireOnChanged(MonacoController controller) {
