@@ -4,32 +4,108 @@ A complete Flutter wrapper for [Monaco Editor](https://github.com/microsoft/mona
 
 ## Status
 
-**Early development.** Phase 1 (web platform, core API) is in progress. See [PLAN.md](PLAN.md) for the roadmap.
+**Early development.** Core API + most language features are in place. See [PLAN.md](PLAN.md) and [CHANGELOG.md](CHANGELOG.md).
 
-## Why this project exists
+## Installation
 
-Existing Flutter Monaco packages cover one platform each — `monaco_editor` is web-only, `flutter_monaco` is native-only. Neither exposes the full Monaco API. This package aims to be the one-stop integration: every Monaco feature, every platform, one Dart API.
+```yaml
+dependencies:
+  flutter_monaco_editor: ^0.5.0
+```
 
-Built to support a Flutter-based IDE, so full functionality — IntelliSense providers, diagnostics, decorations, diff editor, custom themes, multi-model — is a requirement, not a stretch goal.
+No per-platform registration — one import, one widget:
 
-## Packages
+```dart
+import 'package:flutter_monaco_editor/flutter_monaco_editor.dart';
 
-This repository is a monorepo.
+MonacoEditor(
+  initialValue: 'void main() {}',
+  language: 'dart',
+)
+```
 
-| Package | Description | Status |
+## Platform support
+
+| Platform | Transport | Notes |
 |---|---|---|
-| [`flutter_monaco_editor`](packages/flutter_monaco_editor) | Main package. Dart API + Web platform implementation. | ✓ |
-| [`flutter_monaco_editor_native`](packages/flutter_monaco_editor_native) | Webview implementation for Android, iOS, macOS, Windows, Linux. | ✓ (MVP) |
+| Web | `dart:js_interop` | Monaco loads directly in the host document |
+| Android, iOS | [`webview_flutter`](https://pub.dev/packages/webview_flutter) | One WebView per editor |
+| Linux, Windows, macOS | [`webview_cef`](https://pub.dev/packages/webview_cef) | CEF prebuilt downloaded on first build |
 
-## Platform support target
+Monaco's JavaScript API is identical regardless of hosting. One Dart API, one shared JS bridge, three transports that Dart picks automatically (conditional imports + runtime `Platform.isXxx` dispatch).
 
-| Platform | Hosting | Communication |
-|---|---|---|
-| Web | `HtmlElementView` — Monaco loaded directly in DOM | `dart:js_interop` direct calls |
-| Android / iOS | `webview_flutter` loading local HTML asset | WebView JavaScript channel |
-| macOS / Windows / Linux | `webview_flutter` loading local HTML asset | WebView JavaScript channel |
+### Windows setup
 
-Monaco's JavaScript API is identical regardless of hosting. One Dart API, one shared JS bridge protocol, two transports.
+`webview_cef` requires two lines in `windows/runner/main.cpp` — see the [webview_cef README](https://pub.dev/packages/webview_cef#windows).
+
+## Running the example
+
+```sh
+cd example
+flutter pub get
+flutter run -d chrome     # or: -d linux, -d macos, -d android, ...
+```
+
+Eight demos in a sidebar gallery cover the API:
+
+- **Basic** — minimal editor + theme / read-only toggles
+- **Languages** — 10 languages with syntax highlighting
+- **Options** — live sliders / toggles for font, word-wrap, minimap, cursor style
+- **Diagnostics** — error/warning/info markers + decorations + gutter glyphs
+- **Actions & Commands** — custom actions, keybindings, context-menu entries
+- **IntelliSense** — Dart-side completion + hover providers
+- **Diff Editor** — side-by-side / inline
+- **Custom Themes** — `MonacoThemes.defineTheme` with Catppuccin / Tokyo Night presets + `MonacoTheme.fromFlutterTheme` helper
+- **Custom Background** — `MonacoEditor(transparent: true)` + `MonacoTheme.transparent()` over a Flutter gradient
+
+## API tour
+
+```dart
+final controller = MonacoController(
+  initialValue: 'void main() {}',
+  language: 'dart',
+  options: MonacoEditorOptions(
+    fontSize: 14,
+    wordWrap: MonacoWordWrap.on,
+    minimap: MonacoMinimapOptions(enabled: true),
+    bracketPairColorization: true,
+  ),
+);
+
+// Position + selection + content streams
+controller.onDidChangeContent.listen(print);
+controller.onDidChangeCursorPosition.listen((pos) => print('$pos'));
+
+// Decorations + markers
+await controller.setModelMarkers(
+  [MonacoMarker(range: ..., severity: MonacoMarkerSeverity.error, message: '...')],
+);
+
+// Actions + keybindings
+await controller.addAction(MonacoAction(
+  id: 'app.save',
+  label: 'Save',
+  keybindings: [MonacoKeyMod.ctrlCmd | MonacoKeyCode.keyS],
+  run: (_) => save(controller.value),
+));
+
+// Language providers (global, per language id)
+await MonacoLanguages.registerCompletionProvider('dart', MyCompletionProvider());
+await MonacoLanguages.registerHoverProvider('dart', MyHoverProvider());
+
+// Custom themes
+await MonacoThemes.defineTheme('my-theme',
+  MonacoTheme.fromFlutterTheme(Theme.of(context)));
+await MonacoThemes.setTheme('my-theme');
+
+// Diff editor
+MonacoDiffEditor(
+  original: originalSource,
+  modified: modifiedSource,
+  language: 'dart',
+  renderSideBySide: true,
+)
+```
 
 ## Contributing
 
@@ -37,4 +113,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-MIT. Monaco Editor is bundled under its MIT license — see [LICENSE](LICENSE) and `packages/flutter_monaco_editor/assets/ThirdPartyNotices.txt`.
+MIT. Monaco Editor is bundled under its MIT license — see [LICENSE](LICENSE) and `assets/ThirdPartyNotices.txt`.
