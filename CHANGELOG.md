@@ -1,6 +1,10 @@
 # Changelog
 
-## 0.5.0-dev
+## 0.5.0
+
+- First pub.dev release.
+- Works on Web, Android, iOS, macOS, Linux, and Windows.
+- See per-phase notes below for the API surface.
 
 ### Phase 5 — Diff editor, multi-model, custom themes
 
