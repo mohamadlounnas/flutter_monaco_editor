@@ -89,7 +89,11 @@ class BackgroundImage extends StatelessWidget {
 
   Future<void> _toggle() async {
     setState(() => _transparent = !_transparent);
-    await MonacoThemes.setTheme(_transparent ? 'demo-transparent' : 'vs-dark');
+    // Use controller.setTheme — updates cached theme + calls setTheme on
+    // the bridge. Calling MonacoThemes.setTheme alone is not enough: any
+    // subsequent editor.create (e.g. from a widget rebuild) would re-apply
+    // the controller's cached theme, clobbering the global switch.
+    await _controller.setTheme(_transparent ? 'demo-transparent' : 'vs-dark');
   }
 
   @override
@@ -117,16 +121,13 @@ class BackgroundImage extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           const _DemoBackground(),
-          // Key on transparency so we rebuild MonacoEditor when toggled,
-          // giving the native WebView path a chance to pick up the new
-          // transparent flag. On web the flag is a no-op; the theme swap
-          // does the work.
-          KeyedSubtree(
-            key: ValueKey(_transparent),
-            child: MonacoEditor(
-              controller: _controller,
-              transparent: _transparent,
-            ),
+          // No KeyedSubtree — toggling is pure-theme work. Rebuilding the
+          // MonacoEditor would tear down the Monaco editor, creating a
+          // fresh one whose editor.create options include the controller's
+          // cached theme and clobber the just-applied transparent swap.
+          MonacoEditor(
+            controller: _controller,
+            transparent: _transparent,
           ),
         ],
       ),
