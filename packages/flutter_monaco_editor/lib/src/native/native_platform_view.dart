@@ -1,9 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/widgets.dart';
-import 'package:flutter_monaco_editor/flutter_monaco_editor.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import '../monaco_controller.dart';
 import 'native_monaco_bridge.dart';
 
 /// Native (webview) platform view. Each instance owns a fresh

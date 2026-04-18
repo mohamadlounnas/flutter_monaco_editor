@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter_monaco_editor/flutter_monaco_editor.dart';
 import 'package:webview_cef/webview_cef.dart';
 
+import '../bridge/bridge.dart';
 import 'asset_server.dart';
 
 /// CEF-backed [MonacoBridge] for desktop platforms (Linux / Windows /

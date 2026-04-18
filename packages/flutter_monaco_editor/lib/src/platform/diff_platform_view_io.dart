@@ -2,8 +2,9 @@ import 'package:flutter/widgets.dart';
 
 import '../monaco_diff_controller.dart';
 
-/// Stub for non-web platforms — the native package doesn't yet implement
-/// the diff editor. Tracked for 0.5.0.
+/// Diff editor on non-web platforms — placeholder for now. A mobile /
+/// desktop implementation using the same webview transport is tracked
+/// for a future release.
 class MonacoDiffPlatformView extends StatelessWidget {
   const MonacoDiffPlatformView({super.key, required this.controller});
 
@@ -15,8 +16,8 @@ class MonacoDiffPlatformView extends StatelessWidget {
       child: Padding(
         padding: EdgeInsets.all(24),
         child: Text(
-          'MonacoDiffEditor: native support lands in a future release.\n'
-          'Use web (Chrome) for the diff editor today.',
+          'MonacoDiffEditor: only supported on web for now.\n'
+          'Mobile / desktop diff support is a planned follow-up.',
           textAlign: TextAlign.center,
         ),
       ),

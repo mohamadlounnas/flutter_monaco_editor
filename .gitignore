@@ -32,3 +32,4 @@ packages/flutter_monaco_editor/example/linux/
 # Scratch
 /tmp/
 *.log
+.flutter-plugins-dependencies

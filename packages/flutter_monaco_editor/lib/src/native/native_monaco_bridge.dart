@@ -2,8 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:ui' show Color;
 
-import 'package:flutter_monaco_editor/flutter_monaco_editor.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+
+import '../bridge/bridge.dart';
 
 /// Webview-backed MonacoBridge for native platforms.
 ///
@@ -29,7 +30,7 @@ class NativeMonacoBridge implements MonacoBridge {
   static NativeMonacoBridge? _shared;
 
   /// Returns the "shared" bridge for process-global APIs — language
-  /// providers ([MonacoLanguages]), theme registration ([MonacoThemes]).
+  /// providers (`MonacoLanguages`), theme registration (`MonacoThemes`).
   /// On native, each editor widget has its own WebView, so these global
   /// APIs operate only on the first-created bridge.
   static Future<NativeMonacoBridge> instance() async {
@@ -60,7 +61,7 @@ class NativeMonacoBridge implements MonacoBridge {
   int _nextCallId = 1;
   bool _disposed = false;
 
-  /// Exposed for [NativeMonacoPlatformView] — the widget mounts this
+  /// Exposed for `NativeMonacoPlatformView` — the widget mounts this
   /// controller inside a `WebViewWidget`.
   WebViewController get webViewController => _webController;
 

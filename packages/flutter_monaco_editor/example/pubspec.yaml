@@ -12,8 +12,6 @@ dependencies:
     sdk: flutter
   flutter_monaco_editor:
     path: ../
-  flutter_monaco_editor_desktop:
-    path: ../../flutter_monaco_editor_desktop
 
 dev_dependencies:
   flutter_test:

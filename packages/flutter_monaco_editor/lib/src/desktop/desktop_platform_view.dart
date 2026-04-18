@@ -1,8 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/widgets.dart';
-import 'package:flutter_monaco_editor/flutter_monaco_editor.dart';
 
+import '../monaco_controller.dart';
 import 'desktop_monaco_bridge.dart';
 
 /// Desktop platform view — one `webview_cef` webview per editor widget.
