@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.1
+
+- Promote the [live demo link](https://outr.github.io/flutter_monaco_editor/) to the top of the README so it shows on pub.dev's package page.
+
 ## 0.5.0
 
 - First pub.dev release.
