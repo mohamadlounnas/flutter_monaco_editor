@@ -1,5 +1,5 @@
 name: flutter_monaco_editor
-description: A complete Flutter wrapper for Monaco Editor (VS Code's editor) with full API parity across Web, Android, iOS, macOS, Windows, and Linux.
+description: A complete Flutter wrapper for Monaco Editor (VS Code's editor) with full API parity across Web, Android, iOS, and macOS. Linux + Windows native builds use the web runtime for now.
 version: 0.5.0-dev
 repository: https://github.com/outr/flutter_monaco_editor
 issue_tracker: https://github.com/outr/flutter_monaco_editor/issues
@@ -17,13 +17,10 @@ dependencies:
   flutter:
     sdk: flutter
   web: ^1.1.0
-  # webview_flutter powers Android + iOS. Its platform plugins are only
-  # compiled on those targets; other builds link to its Dart layer as a
-  # dependency but never construct a WebViewController.
+  # webview_flutter powers Android, iOS, and macOS. Its platform plugins
+  # are only compiled on those targets; other builds link to the Dart
+  # layer but never construct a WebViewController.
   webview_flutter: ^4.7.0
-  # webview_cef powers Linux + Windows + macOS via Chromium Embedded
-  # Framework. Its plugin only compiles on those desktop targets.
-  webview_cef: ^0.2.2
 
 dev_dependencies:
   flutter_test:

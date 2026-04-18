@@ -29,14 +29,22 @@ MonacoEditor(
 | Platform | Transport | Notes |
 |---|---|---|
 | Web | `dart:js_interop` | Monaco loads directly in the host document |
-| Android, iOS | [`webview_flutter`](https://pub.dev/packages/webview_flutter) | One WebView per editor |
-| Linux, Windows, macOS | [`webview_cef`](https://pub.dev/packages/webview_cef) | CEF prebuilt downloaded on first build |
+| Android, iOS, macOS | [`webview_flutter`](https://pub.dev/packages/webview_flutter) | One WebView per editor |
+| Linux, Windows | — | Not yet supported as native binaries. **Use the web build.** See below. |
 
-Monaco's JavaScript API is identical regardless of hosting. One Dart API, one shared JS bridge, three transports that Dart picks automatically (conditional imports + runtime `Platform.isXxx` dispatch).
+Monaco's JavaScript API is identical regardless of hosting. One Dart API, one shared JS bridge, two transports that Dart picks automatically (conditional imports + runtime `Platform.isXxx` dispatch).
 
-### Windows setup
+### Linux / Windows
 
-`webview_cef` requires two lines in `windows/runner/main.cpp` — see the [webview_cef README](https://pub.dev/packages/webview_cef#windows).
+We previously shipped a `webview_cef`-based integration, but CEF proved unstable on KDE Plasma / Wayland and on other desktop configurations — crashing compositors rather than just the app. Until a stable embedded webview is available on those platforms (WebKitGTK FFI is a candidate for the next iteration), use the web build:
+
+```sh
+cd example && flutter build web --release
+python3 -m http.server --directory build/web 8765 &
+chromium --app=http://localhost:8765
+```
+
+That gives a chromeless, desktop-feeling window on any Linux or Windows machine with Chromium / Chrome / Edge installed.
 
 ## Running the example
 
