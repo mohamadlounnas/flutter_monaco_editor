@@ -37,6 +37,63 @@ MonacoEditor(
 
 Monaco's JavaScript API is identical regardless of hosting — one Dart API, one shared JS bridge, picked per platform automatically.
 
+### Shared native requirement — loopback HTTP
+
+On every native platform (mobile + desktop), Monaco's assets are served
+over an in-process HTTP server on `127.0.0.1:<auto-port>`. The alternative
+— loading from `file://` — breaks Monaco's diff-compute Web Worker on
+Android (blocked `importScripts`) and WebKitGTK on Linux (cross-origin
+restrictions). Loopback HTTP fixes both cleanly.
+
+This means each platform needs a small amount of configuration to allow
+localhost traffic:
+
+### Android setup
+
+1. Add the `INTERNET` permission to `android/app/src/main/AndroidManifest.xml`:
+
+   ```xml
+   <uses-permission android:name="android.permission.INTERNET"/>
+   ```
+
+2. Create `android/app/src/main/res/xml/network_security_config.xml`:
+
+   ```xml
+   <?xml version="1.0" encoding="utf-8"?>
+   <network-security-config>
+       <domain-config cleartextTrafficPermitted="true">
+           <domain includeSubdomains="false">127.0.0.1</domain>
+           <domain includeSubdomains="false">localhost</domain>
+       </domain-config>
+   </network-security-config>
+   ```
+
+3. Reference it from the `<application>` tag:
+
+   ```xml
+   <application
+       ...
+       android:networkSecurityConfig="@xml/network_security_config">
+   ```
+
+See `example/android/` for a working reference.
+
+### iOS setup
+
+Add to `ios/Runner/Info.plist`:
+
+```xml
+<key>NSAppTransportSecurity</key>
+<dict>
+    <key>NSAllowsLocalNetworking</key>
+    <true/>
+</dict>
+```
+
+### macOS setup
+
+Same as iOS — add `NSAllowsLocalNetworking` to `macos/Runner/Info.plist`.
+
 ### Linux setup
 
 Install the system WebKitGTK dev headers (package name varies by distro):
@@ -50,7 +107,7 @@ sudo dnf install webkit2gtk4.1-devel
 sudo pacman -S webkit2gtk-4.1
 ```
 
-The included example's `linux/runner/my_application.cc` already has the `GtkOverlay` wrapper that `webview_all` requires. If you copy the app layout into a new project, see `example/linux/runner/my_application.cc` for the pattern.
+Also wrap `FlView` in a `GtkOverlay` in `linux/runner/my_application.cc` (required by `webview_all`'s Linux backend). See `example/linux/runner/my_application.cc` for the exact edit.
 
 ### Windows setup
 
