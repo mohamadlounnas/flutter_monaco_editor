@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.1+feeef.1 (vendor)
+
+- macOS: handle `UnimplementedError` from `WebViewController.setBackgroundColor` in `NativeMonacoBridge` (same change proposed upstream).
+- `monaco_bridge.js` (after `editor.main`): set `javascriptDefaults` and `typescriptDefaults` for React-style JSX, `checkJs`, and turn on semantic + syntax diagnostics. Register Feeef template **custom component** scope typings (`addExtraLib` for `props`, `React`, react-live hooks/helpers — aligned with lithium `CustomLive` / `CUSTOM_COMPONENT_SCOPE_API.md`). `JSX.IntrinsicElements` lists common HTML/SVG tag names (plus `[elem: string]`) so hovers are not only the index signature; use editor language `typescript` in the merchant template dialog so JSX tags get correct TS/TSX tokenization.
+
 ## 0.5.1
 
 - Promote the [live demo link](https://outr.github.io/flutter_monaco_editor/) to the top of the README so it shows on pub.dev's package page.

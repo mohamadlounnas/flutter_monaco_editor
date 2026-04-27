@@ -147,6 +147,129 @@
     }
   }
 
+  /**
+   * Declares the Feeef storefront react-live scope (CustomLive) so Monaco’s
+   * JavaScript/TypeScript workers know about `props`, `React`, hooks, etc.
+   * Source of truth: web/templates/lithium/components/system/custom-live.tsx
+   * and docs/CUSTOM_COMPONENT_SCOPE_API.md
+   */
+  function _feeefJsxIntrinsicElementsDts() {
+    // Named members so checkJS hovers on <div> etc. are not only "[index] …"; keep
+    // a string index for custom elements. Quote TS reserved words that are
+    // valid tag names. Match React/TSX case (e.g. clipPath, linearGradient).
+    var tagStr =
+      'a abbr address area article aside audio b base bdi bdo big blockquote body br button canvas caption ' +
+      'center cite code col colgroup data datalist dd del details dfn dialog div dl dt em embed fieldset ' +
+      'figcaption figure font footer form h1 h2 h3 h4 h5 h6 head header hgroup hr html i iframe img input ' +
+      'ins kbd label legend li link main map mark menu meta meter nav noscript ol object optgroup option output p ' +
+      'param picture pre progress q rp rt ruby s samp script search section select slot small source span ' +
+      'strong style sub summary sup table tbody td template textarea tfoot th thead time title tr track tt u ' +
+      'ul var video wbr ' +
+      'svg animate animateMotion animateTransform circle clipPath defs ellipse feBlend feColorMatrix ' +
+      'feComponentTransfer feComposite feConvolveMatrix feDiffuseLighting feDisplacementMap feDistantLight ' +
+      'feDropShadow feFlood feFuncA feFuncB feFuncG feFuncR feGaussianBlur feImage feMerge feMergeNode ' +
+      'feMorphology feOffset fePointLight feSpecularLighting feSpotLight feTile feTurbulence filter ' +
+      'foreignObject g image line linearGradient marker mask path pattern polygon polyline radialGradient ' +
+      'rect set switch stop symbol text textPath tspan use view';
+    var quote = { var: true, object: true, switch: true, set: true, symbol: true };
+    var out = [ 'declare namespace JSX {', '  interface IntrinsicElements {' ];
+    var names = tagStr.split(/\s+/);
+    for (var t = 0; t < names.length; t++) {
+      var n = names[t];
+      if (!n) continue;
+      if (quote[n]) {
+        out.push("    '" + n + "': any;");
+      } else {
+        out.push('    ' + n + ': any;');
+      }
+    }
+    out.push('    [elem: string]: any;');
+    out.push('  }');
+    out.push('}');
+    return out;
+  }
+
+  function _installFeeefCustomTemplateScopeLibs(tsApi) {
+    var d = [
+      '/** Feeef template custom component — injected react-live scope (not bundled in app). */'
+    ]
+      .concat(
+        _feeefJsxIntrinsicElementsDts(),
+        [
+      'declare const React: any;',
+      'declare function useState(...args: any[]): any;',
+      'declare function useEffect(...args: any[]): any;',
+      'declare function useLayoutEffect(...args: any[]): any;',
+      'declare function useRef(...args: any[]): any;',
+      'declare function useMemo(...args: any[]): any;',
+      'declare function useCallback(...args: any[]): any;',
+      'declare function useCurrentProduct(): any;',
+      'declare function useFeeefCart(): any;',
+      'declare function useFeeef(): any;',
+      'declare function useStore(): any;',
+      'declare function useTheme(): any;',
+      'declare function useTemplate(): any;',
+      'declare function useRouter(): any;',
+      'declare function usePathname(): any;',
+      'declare function useSearchParams(): any;',
+      'declare const Link: any;',
+      'declare const RouterNav: any;',
+      'declare const SlotContextBridge: any;',
+      'declare function useSlotContext(key: string): any;',
+      'declare function dartColorToCssColor(dartColor: number | null | undefined): string;',
+      'declare function convertDartColorToCssNumber(dartColor: number): number;',
+      'declare function cssColorToHslString(cssColor: number): string;'
+        ]
+      )
+      .join('\n');
+    var path = 'file:///feeef/template-custom-component-scope.d.ts';
+    try {
+      if (tsApi.javascriptDefaults && typeof tsApi.javascriptDefaults.addExtraLib === 'function') {
+        tsApi.javascriptDefaults.addExtraLib(d, path);
+      }
+      if (tsApi.typescriptDefaults && typeof tsApi.typescriptDefaults.addExtraLib === 'function') {
+        tsApi.typescriptDefaults.addExtraLib(d, path);
+      }
+    } catch (e) {
+      console.warn('[monacoBridge] Feeef custom-component scope addExtraLib', e);
+    }
+  }
+
+  // Disposables for schema-driven `props` (per-editor session; see
+  // feeef.setCustomPropsTypes). Static `template-custom-component-scope` omits
+  // `props` to avoid clashing with this file.
+  var _feeefCustomPropsLibDisposers = [];
+
+  handlers['feeef.setCustomPropsTypes'] = function (args) {
+    var i;
+    for (i = 0; i < _feeefCustomPropsLibDisposers.length; i++) {
+      try { _feeefCustomPropsLibDisposers[i].dispose(); } catch (d) { /* ignore */ }
+    }
+    _feeefCustomPropsLibDisposers = [];
+    var content = args && args.content != null ? String(args.content) : '';
+    if (!content) return null;
+    // eslint-disable-next-line no-undef
+    if (typeof monaco === 'undefined' || !monaco.typescript) return null;
+    // eslint-disable-next-line no-undef
+    var t = monaco.typescript;
+    var path = 'file:///feeef/dynamic-props.d.ts';
+    if (t.javascriptDefaults && typeof t.javascriptDefaults.addExtraLib === 'function') {
+      _feeefCustomPropsLibDisposers.push(t.javascriptDefaults.addExtraLib(content, path));
+    }
+    if (t.typescriptDefaults && typeof t.typescriptDefaults.addExtraLib === 'function') {
+      _feeefCustomPropsLibDisposers.push(t.typescriptDefaults.addExtraLib(content, path));
+    }
+    return null;
+  };
+
+  handlers['feeef.clearCustomPropsTypes'] = function () {
+    for (var j = 0; j < _feeefCustomPropsLibDisposers.length; j++) {
+      try { _feeefCustomPropsLibDisposers[j].dispose(); } catch (d) { /* ignore */ }
+    }
+    _feeefCustomPropsLibDisposers = [];
+    return null;
+  };
+
   handlers['bridge.init'] = function (args) {
     return new Promise(function (resolve, reject) {
       if (bridge._ready) { resolve(); return; }
@@ -163,6 +286,59 @@
           require.config({ paths: { vs: args.vsPath } });
           // eslint-disable-next-line no-undef
           require(['vs/editor/editor.main'], function () {
+            // Monaco sets `noSemanticValidation: true` on the JavaScript worker by
+            // default, so `language: 'javascript'` (and JSX in .jsx / embedded TS)
+            // would not show full diagnostic squiggles. Enable checkJs, React-style
+            // JSX, and both semantic and syntax validation. Merge JSX into
+            // TypeScript defaults so `language: 'typescript'` (incl. .tsx) is
+            // consistent. (Bundled `vs` does not register `javascriptreact` ids;
+            // use `javascript` / `typescript` with this embed.)
+            try {
+              // eslint-disable-next-line no-undef
+              if (typeof monaco !== 'undefined' && monaco.typescript) {
+                // eslint-disable-next-line no-undef
+                var tsApi = monaco.typescript;
+                var jsxReact = 2; // JsxEmit.React
+                if (tsApi.JsxEmit && tsApi.JsxEmit.React != null) {
+                  jsxReact = tsApi.JsxEmit.React;
+                }
+                tsApi.javascriptDefaults.setCompilerOptions({
+                  allowNonTsExtensions: true,
+                  allowJs: true,
+                  checkJs: true,
+                  jsx: jsxReact,
+                  target: 99,
+                  module: 99
+                });
+                tsApi.javascriptDefaults.setDiagnosticsOptions({
+                  noSemanticValidation: false,
+                  noSyntaxValidation: false
+                });
+                var tsCo = null;
+                try {
+                  tsCo = tsApi.typescriptDefaults.getCompilerOptions();
+                } catch (e) {
+                  tsCo = null;
+                }
+                if (tsCo) {
+                  tsApi.typescriptDefaults.setCompilerOptions(
+                    Object.assign({}, tsCo, { jsx: jsxReact, allowJs: true, checkJs: true })
+                  );
+                } else {
+                  tsApi.typescriptDefaults.setCompilerOptions({
+                    allowNonTsExtensions: true,
+                    jsx: jsxReact,
+                    allowJs: true,
+                    checkJs: true,
+                    target: 99,
+                    module: 99
+                  });
+                }
+                _installFeeefCustomTemplateScopeLibs(tsApi);
+              }
+            } catch (cfg) {
+              console.warn('[monacoBridge] monaco.typescript defaults for JSX', cfg);
+            }
             bridge._signalReady();
             resolve();
           }, function (err) {
