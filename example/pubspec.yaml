@@ -13,6 +13,7 @@ dependencies:
   flutter_monaco_editor:
     path: ../
 
+  material_ui: any
 dev_dependencies:
   flutter_test:
     sdk: flutter

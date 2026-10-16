@@ -23,6 +23,7 @@ dependencies:
   # as webview_flutter (WebViewController, WebViewWidget, ...).
   webview_all: ^1.0.3
 
+  material_ui: any
 dev_dependencies:
   flutter_test:
     sdk: flutter
