@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.1+feeef.2 (vendor)
+
+- TypeScript project mode for editors of many files: `MonacoController.configureTypeScriptProject` (bridge `typescript.configureProject`) merges compiler options into the TS and JS defaults, turns on eager model sync (models never shown in an editor are part of the program, so imports of unopened files resolve), enables diagnostics and replaces a set of extra declaration files. `MonacoController.setModelValue` (bridge `models.setValue`) updates a background model and re-checks every model shortly after (Monaco only re-checks the model that changed).
+
 ## 0.5.1+feeef.1 (vendor)
 
 - macOS: handle `UnimplementedError` from `WebViewController.setBackgroundColor` in `NativeMonacoBridge` (same change proposed upstream).

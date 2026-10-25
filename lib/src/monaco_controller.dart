@@ -448,6 +448,37 @@ class MonacoController {
     await _bridge!.invoke('models.dispose', {'uri': uri});
   }
 
+  /// Replace the text of a model created via [createModel], whether or not an
+  /// editor shows it (another file of the project changed). No-op when equal.
+  Future<void> setModelValue(String uri, String value) async {
+    _assertNotDisposed();
+    await ready;
+    await _bridge!.invoke('models.setValue', {'uri': uri, 'value': value});
+  }
+
+  /// Configure the TypeScript worker for a project of many files: merges
+  /// [compilerOptions] (Monaco's numeric enums) into the TS and JS defaults,
+  /// turns on eager model sync so every model is part of the program (imports
+  /// of files that were never opened resolve), enables diagnostics, and
+  /// replaces the previous [extraLibs] (path → declaration text).
+  ///
+  /// The TypeScript worker is process-global: this affects every editor.
+  Future<void> configureTypeScriptProject({
+    Map<String, Object?> compilerOptions = const {},
+    Map<String, String> extraLibs = const {},
+    bool eagerModelSync = true,
+  }) async {
+    _assertNotDisposed();
+    await ready;
+    await _bridge!.invoke('typescript.configureProject', {
+      'compilerOptions': compilerOptions,
+      'eagerModelSync': eagerModelSync,
+      'extraLibs': [
+        for (final e in extraLibs.entries) {'path': e.key, 'content': e.value},
+      ],
+    });
+  }
+
   // ==========================================================================
   // Event streams (broadcast)
   // ==========================================================================

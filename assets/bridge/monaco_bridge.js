@@ -792,6 +792,77 @@
     return null;
   };
 
+  // Replace the text of a model that may not be on screen (another file of the
+  // project changed). No-op when the text is already equal.
+  handlers['models.setValue'] = function (args) {
+    var model = bridge._models[args.uri];
+    if (!model) throw new Error('models.setValue: unknown uri ' + args.uri);
+    var value = args.value || '';
+    if (model.getValue() !== value) {
+      model.setValue(value);
+      _revalidateSoon();
+    }
+    return null;
+  };
+
+  // Monaco re-checks a model only when that model changes. When a file other
+  // files import changes in the background, poke the defaults (same options,
+  // fires onDidChange) so every model is checked again. Debounced.
+  var _revalidateTimer = null;
+  function _revalidateSoon() {
+    if (_revalidateTimer) clearTimeout(_revalidateTimer);
+    _revalidateTimer = setTimeout(function () {
+      _revalidateTimer = null;
+      // eslint-disable-next-line no-undef
+      if (typeof monaco === 'undefined' || !monaco.typescript) return;
+      // eslint-disable-next-line no-undef
+      var t = monaco.typescript;
+      [t.typescriptDefaults, t.javascriptDefaults].forEach(function (d) {
+        if (d && typeof d.getDiagnosticsOptions === 'function') {
+          d.setDiagnosticsOptions(Object.assign({}, d.getDiagnosticsOptions()));
+        }
+      });
+    }, 300);
+  }
+
+  // ---------------------------------------------------------------------
+  // TypeScript project (many files that import each other)
+  // ---------------------------------------------------------------------
+
+  var _projectLibDisposers = [];
+
+  // Configure the TypeScript worker for a multi-file project: compiler
+  // options for both TS and JS, eager model sync (every model is part of the
+  // program, so imports of files that were never opened resolve), and a set
+  // of extra declaration files that replaces the previous set.
+  handlers['typescript.configureProject'] = function (args) {
+    // eslint-disable-next-line no-undef
+    if (typeof monaco === 'undefined' || !monaco.typescript) return null;
+    // eslint-disable-next-line no-undef
+    var t = monaco.typescript;
+    var options = (args && args.compilerOptions) || {};
+    var defaults = [t.typescriptDefaults, t.javascriptDefaults];
+    for (var i = 0; i < defaults.length; i++) {
+      var d = defaults[i];
+      if (!d) continue;
+      d.setCompilerOptions(Object.assign({}, d.getCompilerOptions(), options));
+      if (typeof d.setEagerModelSync === 'function') d.setEagerModelSync(args.eagerModelSync !== false);
+      d.setDiagnosticsOptions({ noSemanticValidation: false, noSyntaxValidation: false });
+    }
+    for (var j = 0; j < _projectLibDisposers.length; j++) {
+      try { _projectLibDisposers[j].dispose(); } catch (e) { /* ignore */ }
+    }
+    _projectLibDisposers = [];
+    var libs = (args && args.extraLibs) || [];
+    for (var k = 0; k < libs.length; k++) {
+      var lib = libs[k];
+      if (!lib || !lib.path) continue;
+      _projectLibDisposers.push(t.typescriptDefaults.addExtraLib(String(lib.content || ''), lib.path));
+      _projectLibDisposers.push(t.javascriptDefaults.addExtraLib(String(lib.content || ''), lib.path));
+    }
+    return null;
+  };
+
   handlers['editor.setModel'] = function (args) {
     var entry = _entry(args.editorId);
     var model = bridge._models[args.uri];
