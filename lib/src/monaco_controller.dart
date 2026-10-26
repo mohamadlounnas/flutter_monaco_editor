@@ -479,6 +479,56 @@ class MonacoController {
     });
   }
 
+  List<Map<String, Object?>> _records(Object? value) => [
+        for (final item in value is List ? value : const [])
+          if (item is Map) item.map((k, v) => MapEntry('$k', v)),
+      ];
+
+  /// The symbols of the TypeScript or JavaScript model at [uri] (functions,
+  /// classes, constants, …; imports left out), nested up to [maxDepth]:
+  /// `{name, kind, line, endLine, depth}` in source order. Needs the
+  /// TypeScript project (see [configureTypeScriptProject]).
+  Future<List<Map<String, Object?>>> typeScriptOutline(
+    String uri, {
+    int maxDepth = 2,
+  }) async {
+    _assertNotDisposed();
+    await ready;
+    return _records(await _bridge!.invoke('typescript.outline', {
+      'uri': uri,
+      'maxDepth': maxDepth,
+    }));
+  }
+
+  /// Every reference to the symbol at [line]:[column] (1-based) of [uri],
+  /// across the project's models: `{uri, line, column, text}`.
+  Future<List<Map<String, Object?>>> typeScriptReferences(
+    String uri, {
+    required int line,
+    required int column,
+    int limit = 100,
+  }) async {
+    _assertNotDisposed();
+    await ready;
+    return _records(await _bridge!.invoke('typescript.references', {
+      'uri': uri,
+      'line': line,
+      'column': column,
+      'limit': limit,
+    }));
+  }
+
+  /// The errors and warnings Monaco shows, for one model or every model:
+  /// `{uri, severity: error|warning, message, line, column, code, source}`.
+  Future<List<Map<String, Object?>>> markers({String? uri, int limit = 200}) async {
+    _assertNotDisposed();
+    await ready;
+    return _records(await _bridge!.invoke('markers.list', {
+      if (uri != null) 'uri': uri,
+      'limit': limit,
+    }));
+  }
+
   // ==========================================================================
   // Event streams (broadcast)
   // ==========================================================================

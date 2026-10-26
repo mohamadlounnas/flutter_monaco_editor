@@ -863,6 +863,94 @@
     return null;
   };
 
+  // The TypeScript worker client for a model (JavaScript models use the JS worker).
+  function _tsClient(uri) {
+    // eslint-disable-next-line no-undef
+    var t = monaco.typescript;
+    var model = bridge._models[uri];
+    if (!model || !t) return Promise.reject(new Error('unknown model ' + uri));
+    var get = model.getLanguageId() === 'javascript' ? t.getJavaScriptWorker() : t.getTypeScriptWorker();
+    return get.then(function (worker) { return worker(model.uri); }).then(function (client) {
+      return { client: client, model: model };
+    });
+  }
+
+  // Symbols of a model (functions, classes, consts, …) with their lines, imports left out.
+  handlers['typescript.outline'] = function (args) {
+    var maxDepth = typeof args.maxDepth === 'number' ? args.maxDepth : 2;
+    return _tsClient(args.uri).then(function (c) {
+      return c.client.getNavigationTree(c.model.uri.toString()).then(function (tree) {
+        var out = [];
+        function walk(items, depth) {
+          for (var i = 0; items && i < items.length; i++) {
+            var item = items[i];
+            if (!item || item.kind === 'alias' || !item.spans || !item.spans.length) continue;
+            var span = item.spans[0];
+            out.push({
+              name: item.text,
+              kind: item.kind,
+              line: c.model.getPositionAt(span.start).lineNumber,
+              endLine: c.model.getPositionAt(span.start + span.length).lineNumber,
+              depth: depth,
+            });
+            if (depth < maxDepth) walk(item.childItems, depth + 1);
+          }
+        }
+        walk(tree && tree.childItems, 0);
+        return out;
+      });
+    });
+  };
+
+  // Every reference to the symbol at (line, column), across the project's models.
+  handlers['typescript.references'] = function (args) {
+    var limit = args.limit || 100;
+    return _tsClient(args.uri).then(function (c) {
+      var offset = c.model.getOffsetAt({ lineNumber: args.line, column: args.column });
+      return c.client.getReferencesAtPosition(c.model.uri.toString(), offset).then(function (refs) {
+        var out = [];
+        for (var i = 0; refs && i < refs.length && out.length < limit; i++) {
+          var ref = refs[i];
+          // eslint-disable-next-line no-undef
+          var model = monaco.editor.getModel(monaco.Uri.parse(ref.fileName));
+          if (!model) continue;
+          var p = model.getPositionAt(ref.textSpan.start);
+          out.push({
+            uri: ref.fileName,
+            line: p.lineNumber,
+            column: p.column,
+            text: model.getLineContent(p.lineNumber).trim().slice(0, 200),
+          });
+        }
+        return out;
+      });
+    });
+  };
+
+  // Errors and warnings Monaco shows (every model, or one), as plain records.
+  handlers['markers.list'] = function (args) {
+    // eslint-disable-next-line no-undef
+    var filter = args && args.uri ? { resource: monaco.Uri.parse(args.uri) } : {};
+    var limit = (args && args.limit) || 200;
+    // eslint-disable-next-line no-undef
+    var markers = monaco.editor.getModelMarkers(filter);
+    var out = [];
+    for (var i = 0; i < markers.length && out.length < limit; i++) {
+      var m = markers[i];
+      if (m.severity < 4) continue; // hints and infos
+      out.push({
+        uri: m.resource.toString(),
+        severity: m.severity >= 8 ? 'error' : 'warning',
+        message: m.message,
+        line: m.startLineNumber,
+        column: m.startColumn,
+        code: m.code && typeof m.code === 'object' ? String(m.code.value) : m.code == null ? null : String(m.code),
+        source: m.owner || null,
+      });
+    }
+    return out;
+  };
+
   handlers['editor.setModel'] = function (args) {
     var entry = _entry(args.editorId);
     var model = bridge._models[args.uri];
